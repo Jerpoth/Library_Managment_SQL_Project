@@ -87,10 +87,7 @@ CREATE TABLE issued_status
             issued_book_name VARCHAR(80),
             issued_date DATE,
             issued_book_isbn VARCHAR(50),
-            issued_emp_id VARCHAR(10),
-            FOREIGN KEY (issued_member_id) REFERENCES members(member_id),
-            FOREIGN KEY (issued_emp_id) REFERENCES employees(emp_id),
-            FOREIGN KEY (issued_book_isbn) REFERENCES books(isbn) 
+            issued_emp_id VARCHAR(10)
 );
 
 
@@ -103,9 +100,32 @@ CREATE TABLE return_status
             issued_id VARCHAR(30),
             return_book_name VARCHAR(80),
             return_date DATE,
-            return_book_isbn VARCHAR(50),
-            FOREIGN KEY (return_book_isbn) REFERENCES books(isbn)
+            return_book_isbn VARCHAR(50)
 );
+--FOREIGN KEY--
+ALTER TABLE issued_status
+ADD CONSTRAINT fk_members
+FOREIGN KEY (issued_member_id)
+REFERENCES members(member_id);
+
+ALTER TABLE issued_status
+ADD CONSTRAINT fk_books
+FOREIGN KEY (issued_book_isbn)
+REFERENCES books(isbn);
+
+ALTER TABLE issued_status
+ADD CONSTRAINT fk_employees
+FOREIGN KEY (issued_emp_id)
+REFERENCES employees(emp_id);
+
+
+
+ALTER TABLE return_status
+ADD CONSTRAINT fk_issued_status
+FOREIGN KEY (issued_id)
+REFERENCES issued_status(issued_id);
+
+
 
 ```
 
@@ -409,6 +429,22 @@ GROUP BY 1, 2
 **Task 18: Identify Members Issuing High-Risk Books**  
 Write a query to identify members who have issued books more than twice with the status "damaged" in the books table. Display the member name, book title, and the number of times they've issued damaged books.    
 
+```sql
+select 
+	m.member_name,
+	ist.issued_book_name,
+	count(ist.issued_id) as No_of_Time_issued
+	from 
+		issued_status as ist
+	join
+		members as m on ist.issued_member_id = m.member_id
+	join
+		return_status as r on ist.issued_id = r.issued_id
+	where
+		r.book_quality = 'Damaged'
+	group by 1,2;
+
+```
 
 **Task 19: Stored Procedure**
 Objective:
@@ -486,7 +522,31 @@ Description: Write a CTAS query to create a new table that lists each member and
     Member ID
     Number of overdue books
     Total fines
+```sql
+CREATE TABLE over_due_books 
+AS
+	select 
+		ist.issued_member_id as Member_id,
+		m.member_name,
+		count(ist.issued_member_id) as No_of_books,
+		max(current_date - ist.issued_date) as No_of_dues,
+		sum((current_date - ist.issued_date)*0.5) as Total_fine	
+	from 
+		issued_status as ist
+	join
+		members as m on ist.issued_member_id = m.member_id
+	join
+		books as b on ist.issued_book_isbn=b.isbn
+	left join 
+		return_status as r on ist.issued_id=r.issued_id
+	where 
+		r.return_id is null
+	and 
+		(current_date - ist.issued_date)>30
+	group by 1,2;
 
+select * from over_due_books;
+```
 
 
 ## Reports
